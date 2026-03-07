@@ -37,7 +37,7 @@ router.post('/login', async (req, res) => {
 // @desc    Register a new user
 // @route   POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password, role, email, firstName, lastName } = req.body;
 
   try {
     const userExists = await User.findOne({ username });
@@ -49,13 +49,19 @@ router.post('/register', async (req, res) => {
     const user = await User.create({
       username,
       password,
-      role: role || 'user'
+      role: role || 'user',
+      email,
+      firstName,
+      lastName
     });
 
     if (user) {
       res.status(201).json({
         _id: user._id,
         username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
         role: user.role,
         token: generateToken(user._id),
       });

@@ -1,7 +1,7 @@
 {
-  "name": "crowd-monitor-backend",
+  "name": "crowdpulse-backend",
   "version": "1.0.0",
-  "description": "Backend for Crowd Management Web Application",
+  "description": "Backend for CrowdPulse Web Application",
   "main": "server.js",
   "type": "module",
   "scripts": {

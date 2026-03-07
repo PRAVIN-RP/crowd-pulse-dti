@@ -10,7 +10,7 @@ const Sidebar = () => {
     <aside className="sidebar">
       <div className="sidebar-header">
         <Activity className="brand-icon" size={32} />
-        <h2 className="brand-title">Smart<span className="text-gradient">Monitor</span></h2>
+        <h2 className="brand-title">Crowd<span className="text-gradient">Pulse</span></h2>
       </div>
 
       <div className="user-profile mb-6">

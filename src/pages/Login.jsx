@@ -9,6 +9,9 @@ const Login = () => {
   const [role, setRole] = useState('user'); // default to standard user view
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = async (e) => {
@@ -18,7 +21,7 @@ const Login = () => {
       const res = await login(role, username, password);
       if (!res.success) setErrorMsg(res.message);
     } else {
-      const res = await register(username, password, role);
+      const res = await register({ username, password, role, email, firstName, lastName });
       if (!res.success) setErrorMsg(res.message);
     }
   };
@@ -31,7 +34,7 @@ const Login = () => {
         <div className="login-header">
           <Activity className="brand-icon mx-auto" size={48} />
           <h2 className="brand-title login-title">
-            Smart<span className="text-gradient">Monitor</span>
+            Crowd<span className="text-gradient">Pulse</span>
           </h2>
           <p className="login-subtitle">
             {isLogin ? 'Sign in to access the dashboard' : 'Create a new operator account'}
@@ -58,7 +61,45 @@ const Login = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
-          <div className="input-group-col">
+          {!isLogin && (
+            <>
+              <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="input-group-col" style={{ flex: 1 }}>
+                  <label>First Name</label>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required={!isLogin}
+                  />
+                </div>
+                <div className="input-group-col" style={{ flex: 1 }}>
+                  <label>Last Name</label>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required={!isLogin}
+                  />
+                </div>
+              </div>
+
+              <div className="input-group-col" style={{ marginBottom: '1rem' }}>
+                <label>Email Address</label>
+                <input 
+                  type="email" 
+                  className="input-field" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required={!isLogin}
+                />
+              </div>
+            </>
+          )}
+
+          <div className="input-group-col" style={{ marginBottom: '1rem' }}>
             <label>Username</label>
             <input 
               type="text" 

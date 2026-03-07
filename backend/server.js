@@ -23,7 +23,7 @@ app.use('/api/settings', settingsRoutes);
 
 // Base route
 app.get('/', (req, res) => {
-  res.send('Crowd Management API is running');
+  res.send('CrowdPulse API is running');
 });
 
 // Start server
