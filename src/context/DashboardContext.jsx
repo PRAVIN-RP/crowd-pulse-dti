@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import io from 'socket.io-client';
 
 const DashboardContext = createContext();
 
@@ -19,6 +20,8 @@ export const DashboardProvider = ({ children }) => {
   const [alerts, setAlerts] = useState([]);
   const [serialStatus, setSerialStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'error'
   const [port, setPort] = useState(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     if (!user?.token) return;
@@ -66,15 +69,43 @@ export const DashboardProvider = ({ children }) => {
       }
     };
 
-    // Poll every 3 seconds if not using serial
-    let interval;
-    if (serialStatus !== 'connected') {
-      interval = setInterval(fetchSensorData, 3000);
-      fetchSensorData(); // Initial fetch
-    }
+    fetchSensorData(); // Initial fetch
+
+    // Setup Socket.IO connection instead of 3s polling
+    const newSocket = io('http://localhost:5000', {
+      transports: ['websocket', 'polling']
+    });
+
+    newSocket.on('connect', () => {
+      console.log('Connected to real-time socket server');
+      setSocketConnected(true);
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('Disconnected from socket server');
+      setSocketConnected(false);
+    });
+
+    newSocket.on('sensor_data', (newData) => {
+      // Only merge if we aren't using the local USB Serial
+      setSerialStatus(status => {
+         if (status !== 'connected') {
+            setSensorData(prev => {
+              const newHist = [...prev.history, {
+                time: new Date(newData.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), 
+                people: newData.peopleCount,
+                temp: newData.temperature
+              }].slice(-20);
+
+              return { ...prev, ...newData, history: newHist };
+            });
+         }
+         return status;
+      });
+    });
 
     return () => {
-      if (interval) clearInterval(interval);
+      newSocket.disconnect();
     };
   }, [user, serialStatus]);
 
@@ -193,25 +224,52 @@ export const DashboardProvider = ({ children }) => {
     }
   };
 
-  // Check for alerts
+  // Check for alerts and fire system log if triggered
   useEffect(() => {
     const hasAlert = alerts.some(a => a.id === 'crowd-limit');
 
     if (sensorData.peopleCount >= maxCrowdLimit) {
       if (!hasAlert) {
+        const msg = `CRITICAL: Overcrowding detected! Count (${sensorData.peopleCount}) exceeds limit of ${maxCrowdLimit}.`;
+        
         setAlerts(prev => [{
           id: 'crowd-limit',
           type: 'danger',
-          message: `CRITICAL: Overcrowding detected! Count (${sensorData.peopleCount}) exceeds limit of ${maxCrowdLimit}.`,
+          message: msg,
           timestamp: new Date()
         }, ...prev]);
+
+        // Push to server log
+        if (user?.token) {
+           fetch('/api/logs', {
+             method: 'POST',
+             headers: {
+               'Content-Type': 'application/json',
+               Authorization: `Bearer ${user.token}`
+             },
+             body: JSON.stringify({ action: 'ALERT_TRIGGERED', message: msg, level: 'danger' })
+           }).catch(e => console.error(e));
+        }
+
       }
     } else {
       if (hasAlert) {
         setAlerts(prev => prev.filter(a => a.id !== 'crowd-limit'));
+        
+        // Push resolved log
+        if (user?.token) {
+           fetch('/api/logs', {
+             method: 'POST',
+             headers: {
+               'Content-Type': 'application/json',
+               Authorization: `Bearer ${user.token}`
+             },
+             body: JSON.stringify({ action: 'ALERT_RESOLVED', message: 'Crowd level returned to safe limits.', level: 'success' })
+           }).catch(e => console.error(e));
+        }
       }
     }
-  }, [sensorData.peopleCount, maxCrowdLimit, alerts]);
+  }, [sensorData.peopleCount, maxCrowdLimit, alerts, user]);
 
   return (
     <DashboardContext.Provider value={{
@@ -222,7 +280,10 @@ export const DashboardProvider = ({ children }) => {
       isOvercrowded: sensorData.peopleCount >= maxCrowdLimit,
       connectSerial,
       disconnectSerial,
-      serialStatus
+      serialStatus,
+      socketConnected,
+      darkMode,
+      setDarkMode
     }}>
       {children}
     </DashboardContext.Provider>

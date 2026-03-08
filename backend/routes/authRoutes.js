@@ -90,4 +90,62 @@ router.get('/profile', protect, async (req, res) => {
   }
 });
 
+// @desc    Get all users (Admin only)
+// @route   GET /api/auth/users
+router.get('/users', protect, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Not authorized as admin' });
+  }
+  try {
+    const users = await User.find({}).select('-password');
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @desc    Delete user (Admin only)
+// @route   DELETE /api/auth/users/:id
+router.delete('/users/:id', protect, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Not authorized as admin' });
+  }
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    // Prevent deleting the main admin
+    if (user.username === 'admin') {
+       return res.status(400).json({ message: 'Cannot delete root admin' });
+    }
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: 'User removed' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @desc    Reset user password (Admin only)
+// @route   PUT /api/auth/users/:id/reset
+router.put('/users/:id/reset', protect, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Not authorized as admin' });
+  }
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Default reset password
+    user.password = 'password';
+    await user.save();
+    res.json({ message: 'Password reset to "password"' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 export default router;

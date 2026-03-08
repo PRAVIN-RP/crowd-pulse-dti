@@ -54,7 +54,7 @@
 
 .role-selector {
   display: flex;
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: var(--surface-overlay);
   border-radius: var(--radius-md);
   padding: 4px;
   margin-bottom: 2rem;

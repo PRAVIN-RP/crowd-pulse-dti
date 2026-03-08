@@ -33,6 +33,13 @@ router.post('/', async (req, res) => {
     };
 
     const docRef = await addDoc(sensorRef, newDocParams);
+    
+    // Broadcast via socket to all connected clients
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('sensor_data', { _id: docRef.id, ...newDocParams });
+    }
+
     res.status(201).json({ _id: docRef.id, ...newDocParams });
   } catch (error) {
     console.error('Error in POST /api/sensor:', error);

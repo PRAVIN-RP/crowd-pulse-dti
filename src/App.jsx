@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { useDashboard } from './context/DashboardContext';
 import Sidebar from './components/layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
@@ -8,6 +10,19 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
+  
+  // Conditionally apply dark mode since DashboardProvider requires Auth token
+  const dashboard = isAuthenticated ? useDashboard() : null;
+  const isDark = dashboard?.darkMode || false;
+  
+  // Set theme on body to override root completely
+  useEffect(() => {
+    if (isDark) {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+  }, [isDark]);
   
   return (
     <div className="layout-container">
