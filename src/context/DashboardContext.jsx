@@ -9,6 +9,7 @@ export const useDashboard = () => useContext(DashboardContext);
 export const DashboardProvider = ({ children }) => {
   const { user } = useAuth();
   const [maxCrowdLimit, setMaxCrowdLimit] = useState(100);
+  const [warningLimit, setWarningLimit] = useState(75);
   const [sensorData, setSensorData] = useState({
     peopleCount: 0,
     temperature: 0,
@@ -22,6 +23,7 @@ export const DashboardProvider = ({ children }) => {
   const [port, setPort] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [activeBroadcast, setActiveBroadcast] = useState(null);
 
   useEffect(() => {
     if (!user?.token) return;
@@ -33,7 +35,8 @@ export const DashboardProvider = ({ children }) => {
         });
         if (res.ok) {
           const data = await res.json();
-          setMaxCrowdLimit(data.maxCrowdLimit);
+          setMaxCrowdLimit(data.maxCrowdLimit || 100);
+          setWarningLimit(data.warningLimit || 75);
         }
       } catch (err) {
         console.error("Error fetching settings:", err);
@@ -102,6 +105,10 @@ export const DashboardProvider = ({ children }) => {
          }
          return status;
       });
+    });
+
+    newSocket.on('admin_broadcast', (broadcast) => {
+      setActiveBroadcast(broadcast);
     });
 
     return () => {
@@ -202,7 +209,7 @@ export const DashboardProvider = ({ children }) => {
     }
   };
 
-  const updateSettings = async (newLimit) => {
+  const updateSettings = async (updates) => {
     if (!user?.token) return;
     try {
       const res = await fetch('/api/settings', {
@@ -211,11 +218,12 @@ export const DashboardProvider = ({ children }) => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${user.token}`
         },
-        body: JSON.stringify({ maxCrowdLimit: newLimit })
+        body: JSON.stringify(updates)
       });
       if (res.ok) {
         const data = await res.json();
-        setMaxCrowdLimit(data.maxCrowdLimit);
+        if (data.maxCrowdLimit) setMaxCrowdLimit(data.maxCrowdLimit);
+        if (data.warningLimit) setWarningLimit(data.warningLimit);
       } else {
         alert("Failed to update settings. Admin access required.");
       }
@@ -275,6 +283,7 @@ export const DashboardProvider = ({ children }) => {
     <DashboardContext.Provider value={{
       sensorData,
       maxCrowdLimit,
+      warningLimit,
       updateSettings,
       alerts,
       isOvercrowded: sensorData.peopleCount >= maxCrowdLimit,
@@ -283,7 +292,9 @@ export const DashboardProvider = ({ children }) => {
       serialStatus,
       socketConnected,
       darkMode,
-      setDarkMode
+      setDarkMode,
+      activeBroadcast,
+      setActiveBroadcast
     }}>
       {children}
     </DashboardContext.Provider>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { useAuth } from '../context/AuthContext';
-import { Settings, ShieldAlert, Cpu, Users, BarChart2, Activity, MapPin } from 'lucide-react';
+import { Settings, ShieldAlert, Cpu, Users, BarChart2, Activity, MapPin, Send } from 'lucide-react';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import './Admin.css';
 
 const Admin = () => {
@@ -10,8 +11,13 @@ const Admin = () => {
   
   const [activeTab, setActiveTab] = useState('monitoring');
   const [tempLimit, setTempLimit] = useState(maxCrowdLimit);
+  const [tempWarningLimit, setTempWarningLimit] = useState(75);
   const [sysLogs, setSysLogs] = useState([]);
   const [usersList, setUsersList] = useState([]);
+  
+  // Broadcast State
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [broadcastSeverity, setBroadcastSeverity] = useState('info');
 
   // Modal State
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
@@ -20,10 +26,33 @@ const Admin = () => {
 
   useEffect(() => {
      setTempLimit(maxCrowdLimit);
+     // Warning limit is retrieved from context if available, fallback 75
+     setTempWarningLimit(75); 
   }, [maxCrowdLimit]);
 
   const handleSaveSettings = () => {
-    updateSettings(Number(tempLimit));
+    updateSettings({ maxCrowdLimit: Number(tempLimit), warningLimit: Number(tempWarningLimit) });
+    alert("Settings updated successfully!");
+  };
+
+  const handleSendBroadcast = async (e) => {
+    e.preventDefault();
+    if (!broadcastMsg.trim() || !user?.token) return;
+
+    try {
+      const res = await fetch('/api/settings/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`
+        },
+        body: JSON.stringify({ message: broadcastMsg, severity: broadcastSeverity })
+      });
+      if (res.ok) {
+        setBroadcastMsg('');
+        alert("Broadcast sent to all active personnel terminals!");
+      }
+    } catch (e) { console.error("Broadcast failed:", e) }
   };
 
   const fetchUsers = async () => {
@@ -127,27 +156,46 @@ const Admin = () => {
           {activeTab === 'settings' && (
             <div className="card">
               <h3 className="mb-4 flex-center-left"><Settings size={20} className="mr-2 text-primary" /> Configuration</h3>
-              <div className="setting-group mb-6">
-                <label>Maximum Safe Crowd Limit</label>
-                <div className="input-group mt-2">
-                  <input 
-                    type="number" 
-                    className="input-field" 
-                    value={tempLimit} 
-                    onChange={(e) => setTempLimit(e.target.value)}
-                    min="1"
-                    style={{ maxWidth: '200px'}}
-                  />
-                  <button className="btn-primary" onClick={handleSaveSettings}>Apply Settings</button>
-                </div>
-                <p className="setting-helper mt-2">Set the threshold for the system to trigger overcrowding alerts.</p>
+              <div className="grid gap-6">
+                 <div className="setting-group">
+                   <label className="font-bold text-danger">Maximum Crowd Limit (Overcrowded)</label>
+                   <div className="input-group mt-2">
+                     <input 
+                       type="number" 
+                       className="input-field border-danger" 
+                       value={tempLimit} 
+                       onChange={(e) => setTempLimit(e.target.value)}
+                       min="1"
+                       style={{ maxWidth: '200px'}}
+                     />
+                   </div>
+                   <p className="setting-helper mt-2">Threshold for critical Red alerts. Current: {maxCrowdLimit}</p>
+                 </div>
+                 <div className="setting-group">
+                   <label className="font-bold text-warning">Warning Crowd Limit (Caution)</label>
+                   <div className="input-group mt-2">
+                     <input 
+                       type="number" 
+                       className="input-field border-warning" 
+                       value={tempWarningLimit} 
+                       onChange={(e) => setTempWarningLimit(e.target.value)}
+                       min="1"
+                       style={{ maxWidth: '200px'}}
+                     />
+                   </div>
+                   <p className="setting-helper mt-2">Threshold for Yellow warning alerts. Current: {tempWarningLimit}</p>
+                 </div>
               </div>
-              <div className="setting-group border-top pt-4">
-                 <h4>Notifications Configuration</h4>
-                 <div className="mt-4 flex-center-left" style={{ gap: '1rem'}}>
+              <div className="mt-6">
+                 <button className="btn-primary" onClick={handleSaveSettings}>Apply All Settings</button>
+              </div>
+
+              <div className="setting-group border-top pt-4 mt-6">
+                 <h4 className="mb-4">Notifications & Alerts Configuration</h4>
+                 <div className="flex-center-left gap-4 flex-wrap">
                     <label className="flex-center-left gap-2 cursor-pointer"><input type="checkbox" defaultChecked /> Enable UI Alerts</label>
-                    <label className="flex-center-left gap-2 cursor-pointer"><input type="checkbox" /> Email Notifications</label>
-                    <label className="flex-center-left gap-2 cursor-pointer"><input type="checkbox" /> SMS Warnings</label>
+                    <label className="flex-center-left gap-2 cursor-pointer"><input type="checkbox" /> Automate Emails to Staff</label>
+                    <label className="flex-center-left gap-2 cursor-pointer"><input type="checkbox" /> Emergency SMS Warnings</label>
                  </div>
               </div>
             </div>
@@ -155,6 +203,32 @@ const Admin = () => {
 
           {activeTab === 'logs' && (
             <div className="card">
+              <h3 className="mb-4">Terminal Broadcast</h3>
+              <form onSubmit={handleSendBroadcast} className="mb-6 pb-6 border-bottom">
+                 <div className="flex gap-4 mb-2">
+                    <div className="flex-grow">
+                       <label className="text-sm text-secondary">Message Payload</label>
+                       <input 
+                         type="text" 
+                         className="input-field w-full mt-1" 
+                         placeholder="Enter emergency or information text here..." 
+                         value={broadcastMsg}
+                         onChange={e => setBroadcastMsg(e.target.value)}
+                         required
+                       />
+                    </div>
+                    <div>
+                        <label className="text-sm text-secondary">Severity</label>
+                        <select className="input-field w-full mt-1" value={broadcastSeverity} onChange={e => setBroadcastSeverity(e.target.value)}>
+                           <option value="info">Info (Blue)</option>
+                           <option value="warning">Warning (Yellow)</option>
+                           <option value="danger">Critical (Red)</option>
+                        </select>
+                    </div>
+                 </div>
+                 <button type="submit" className="btn-primary mt-2 flex-center-left gap-2"><Send size={16}/> Dispatch Broadcast</button>
+              </form>
+
               <h3 className="mb-4">System Event Logs</h3>
               <div className="table-responsive">
                 <table className="w-full text-left border-collapse">
@@ -202,13 +276,46 @@ const Admin = () => {
           )}
 
           {activeTab === 'analytics' && (
-             <div className="card">
-               <h3 className="mb-4">Data Analytics</h3>
-               <p className="text-muted mb-6">Export historical sensor data for compliance and reporting.</p>
-               <div className="flex gap-4">
-                 <button className="btn-primary" onClick={() => alert("Generating CSV Export...")}>Export Last 7 Days (CSV)</button>
-                 <button className="btn-primary" style={{ backgroundColor: 'var(--success)'}} onClick={() => alert("Generating PDF Report...")}>Generate PDF Report</button>
-               </div>
+             <div className="grid gap-6">
+                <div className="card">
+                   <h3 className="mb-4">Historical Analytics</h3>
+                   <p className="text-muted mb-6">Simulated analytics for the past 7 days based on current constraints.</p>
+                   
+                   <div style={{ width: '100%', height: 300 }}>
+                     <ResponsiveContainer>
+                        <AreaChart data={[
+                           { day: 'Mon', peak: 85, avg: 40 },
+                           { day: 'Tue', peak: 102, avg: 50 },
+                           { day: 'Wed', peak: Math.floor(maxCrowdLimit * 1.1), avg: 60 },
+                           { day: 'Thu', peak: 90, avg: 45 },
+                           { day: 'Fri', peak: Math.floor(maxCrowdLimit * 1.3), avg: 85 },
+                           { day: 'Sat', peak: Math.floor(maxCrowdLimit * 1.5), avg: 110 },
+                           { day: 'Sun', peak: Math.floor(maxCrowdLimit * 0.9), avg: 70 },
+                        ]}>
+                          <defs>
+                            <linearGradient id="colorPeak" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                          <XAxis dataKey="day" stroke="var(--text-muted)" />
+                          <YAxis stroke="var(--text-muted)" />
+                          <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                          <Area type="monotone" dataKey="peak" stroke="var(--primary)" fillOpacity={1} fill="url(#colorPeak)" name="Peak Crowd" />
+                          <Area type="monotone" dataKey="avg" stroke="var(--success)" fillOpacity={0.2} fill="var(--success)" name="Average Crowd" />
+                        </AreaChart>
+                     </ResponsiveContainer>
+                   </div>
+                </div>
+
+                <div className="card">
+                   <h3 className="mb-4">Export Compliance Records</h3>
+                   <div className="flex gap-4">
+                     <button className="btn-primary outline" onClick={() => alert("Generating CSV Export...")}>Download Last 30 Days (CSV)</button>
+                     <button className="btn-primary" style={{ backgroundColor: 'var(--success)', border: 'none' }} onClick={() => alert("Generating PDF Report...")}>Generate Compliance PDF</button>
+                   </div>
+                </div>
              </div>
           )}
 

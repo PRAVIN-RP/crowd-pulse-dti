@@ -1,4 +1,4 @@
-import { MapPin, Users, Thermometer, Droplets, Activity, Usb } from 'lucide-react';
+import { MapPin, Users, Thermometer, Droplets, Activity, Usb, Bell, X } from 'lucide-react';
 import { useDashboard } from '../context/DashboardContext';
 import MetricCard from '../components/dashboard/MetricCard';
 import CrowdStatusBanner from '../components/dashboard/CrowdStatusBanner';
@@ -7,7 +7,7 @@ import { useState } from 'react';
 import './Dashboard.css';
 
 const Dashboard = () => {
-  const { sensorData, maxCrowdLimit, isOvercrowded, connectSerial, disconnectSerial, serialStatus, socketConnected } = useDashboard();
+  const { sensorData, maxCrowdLimit, warningLimit, isOvercrowded, connectSerial, disconnectSerial, serialStatus, socketConnected, activeBroadcast, setActiveBroadcast } = useDashboard();
   const [selectedLocation, setSelectedLocation] = useState('Zone-A (Main Hall)');
 
   return (
@@ -51,13 +51,28 @@ const Dashboard = () => {
         maxLimit={maxCrowdLimit}
       />
 
+      {activeBroadcast && (
+         <div className={`broadcast-banner border rounded p-4 mb-6 flex-between animate-fade-in`} style={{ backgroundColor: `var(--${activeBroadcast.severity}-glow)`, borderColor: `var(--${activeBroadcast.severity})` }}>
+            <div className="flex-center-left gap-3">
+               <Bell className={`text-${activeBroadcast.severity}`} size={24} />
+               <div>
+                  <h4 className={`text-${activeBroadcast.severity} font-bold`}>ADMINISTRATOR BROADCAST</h4>
+                  <p className="mt-1">{activeBroadcast.message}</p>
+               </div>
+            </div>
+            <button className="bg-transparent border-none cursor-pointer" onClick={() => setActiveBroadcast(null)}>
+               <X className="text-secondary hover:text-primary transition-all" />
+            </button>
+         </div>
+      )}
+
       <div className="metrics-grid">
         <MetricCard
           title="Total People"
           value={sensorData.peopleCount}
           icon={Users}
-          colorClass={sensorData.peopleCount >= maxCrowdLimit ? 'danger' : (sensorData.peopleCount > maxCrowdLimit * 0.75 ? 'warning' : 'success')}
-          subtext={`Distance Sensors: Entry ${sensorData.lastEntryDistance}mm / Exit ${sensorData.lastExitDistance}mm`}
+          colorClass={sensorData.peopleCount >= maxCrowdLimit ? 'danger' : (sensorData.peopleCount >= warningLimit ? 'warning' : 'success')}
+          subtext={`Distance Sensors: Entry ${sensorData.lastEntryDistance || 0}mm / Exit ${sensorData.lastExitDistance || 0}mm`}
         />
         
         <MetricCard
