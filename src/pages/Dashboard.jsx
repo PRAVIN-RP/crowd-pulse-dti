@@ -1,4 +1,4 @@
-import { Users, Thermometer, Droplets, Activity } from 'lucide-react';
+import { Users, Thermometer, Droplets, Activity, Usb } from 'lucide-react';
 import { useDashboard } from '../context/DashboardContext';
 import MetricCard from '../components/dashboard/MetricCard';
 import CrowdStatusBanner from '../components/dashboard/CrowdStatusBanner';
@@ -6,14 +6,25 @@ import DataChart from '../components/charts/DataChart';
 import './Dashboard.css';
 
 const Dashboard = () => {
-  const { sensorData, maxCrowdLimit, isOvercrowded } = useDashboard();
+  const { sensorData, maxCrowdLimit, isOvercrowded, connectSerial, disconnectSerial, serialStatus } = useDashboard();
 
   return (
     <div className="dashboard animate-fade-in">
-      <header className="page-header">
+      <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 className="page-title">Live Overview</h1>
           <p className="page-subtitle">Real-time IoT Monitoring Dashboard</p>
+        </div>
+        <div>
+          <button 
+            className={`btn ${serialStatus === 'connected' ? 'btn-success' : 'btn-primary'}`}
+            onClick={serialStatus === 'connected' ? disconnectSerial : connectSerial}
+            disabled={serialStatus === 'connecting'}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Usb size={18} />
+            {serialStatus === 'connected' ? 'Disconnect USB Sensor' : serialStatus === 'connecting' ? 'Connecting...' : 'Connect USB Sensor'}
+          </button>
         </div>
       </header>
 

@@ -17,6 +17,8 @@ export const DashboardProvider = ({ children }) => {
   });
 
   const [alerts, setAlerts] = useState([]);
+  const [serialStatus, setSerialStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'error'
+  const [port, setPort] = useState(null);
 
   useEffect(() => {
     if (!user?.token) return;
@@ -64,12 +66,110 @@ export const DashboardProvider = ({ children }) => {
       }
     };
 
-    // Poll every 3 seconds
-    const interval = setInterval(fetchSensorData, 3000);
-    fetchSensorData(); // Initial fetch
+    // Poll every 3 seconds if not using serial
+    let interval;
+    if (serialStatus !== 'connected') {
+      interval = setInterval(fetchSensorData, 3000);
+      fetchSensorData(); // Initial fetch
+    }
 
-    return () => clearInterval(interval);
-  }, [user]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [user, serialStatus]);
+
+  const connectSerial = async () => {
+    if (!('serial' in navigator)) {
+      alert("Web Serial API not supported in this browser. Please use Chrome or Edge.");
+      return;
+    }
+
+    try {
+      setSerialStatus('connecting');
+      const selectedPort = await navigator.serial.requestPort();
+      await selectedPort.open({ baudRate: 9600 });
+      setPort(selectedPort);
+      setSerialStatus('connected');
+      readSerialData(selectedPort);
+    } catch (err) {
+      console.error("Error connecting to serial port:", err);
+      setSerialStatus('error');
+    }
+  };
+
+  const disconnectSerial = async () => {
+    if (port) {
+      try {
+        await port.close();
+        setPort(null);
+        setSerialStatus('disconnected');
+      } catch(err) {
+        console.error("Error closing port", err);
+      }
+    }
+  };
+
+  const readSerialData = async (activePort) => {
+    const textDecoder = new TextDecoderStream();
+    const readableStreamClosed = activePort.readable.pipeTo(textDecoder.writable);
+    const reader = textDecoder.readable.getReader();
+
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) {
+          buffer += value;
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            try {
+              const dataStr = line.trim();
+              if (dataStr.startsWith('{') && dataStr.endsWith('}')) {
+                const parsed = JSON.parse(dataStr);
+                
+                setSensorData(prev => {
+                  const newHistory = [...prev.history, {
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                    people: parsed.peopleCount || 0,
+                    temp: parsed.temperature || 0
+                  }].slice(-20);
+
+                  return {
+                    ...prev,
+                    ...parsed,
+                    history: newHistory
+                  };
+                });
+
+                // Send to backend so history/logs are tracked
+                if (user?.token) {
+                   fetch('/api/sensor', {
+                     method: 'POST',
+                     headers: { 
+                       'Content-Type': 'application/json',
+                       Authorization: `Bearer ${user.token}` 
+                     },
+                     body: JSON.stringify(parsed)
+                   }).catch(e => console.error("Error sending serial data to backend", e));
+                }
+              }
+            } catch(e) {
+              console.log("Error parsing serial line:", line, e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error reading from serial port:', error);
+      setSerialStatus('error');
+    } finally {
+      reader.releaseLock();
+    }
+  };
 
   const updateSettings = async (newLimit) => {
     if (!user?.token) return;
@@ -119,7 +219,10 @@ export const DashboardProvider = ({ children }) => {
       maxCrowdLimit,
       updateSettings,
       alerts,
-      isOvercrowded: sensorData.peopleCount >= maxCrowdLimit
+      isOvercrowded: sensorData.peopleCount >= maxCrowdLimit,
+      connectSerial,
+      disconnectSerial,
+      serialStatus
     }}>
       {children}
     </DashboardContext.Provider>
