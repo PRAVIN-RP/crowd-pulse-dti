@@ -9,13 +9,16 @@ const settingsRef = collection(db, 'settings');
 const getOrCreateSettings = async () => {
   const snapshot = await getDocs(settingsRef);
   if (snapshot.empty) {
-    const docRef = await addDoc(settingsRef, { maxCrowdLimit: 100, warningLimit: 75 });
-    return { _id: docRef.id, maxCrowdLimit: 100, warningLimit: 75 };
+    const docRef = await addDoc(settingsRef, { maxCrowdLimit: 100, warningLimit: 75, isEmergencyMode: false });
+    return { _id: docRef.id, maxCrowdLimit: 100, warningLimit: 75, isEmergencyMode: false };
   }
   const data = snapshot.docs[0].data();
   // Ensure we have a default warning limit if upgrading the database
   if (data.warningLimit === undefined) {
       data.warningLimit = Math.floor((data.maxCrowdLimit || 100) * 0.75);
+  }
+  if (data.isEmergencyMode === undefined) {
+      data.isEmergencyMode = false;
   }
   return { _id: snapshot.docs[0].id, ...data };
 };
@@ -33,17 +36,24 @@ router.get('/', protect, async (req, res) => {
 // @desc    Update application settings
 router.put('/', protect, adminOnly, async (req, res) => {
   try {
-    const { maxCrowdLimit, warningLimit } = req.body;
+    const { maxCrowdLimit, warningLimit, isEmergencyMode } = req.body;
     let settings = await getOrCreateSettings();
     
     let updates = {};
     if (maxCrowdLimit !== undefined) updates.maxCrowdLimit = maxCrowdLimit;
     if (warningLimit !== undefined) updates.warningLimit = warningLimit;
+    if (isEmergencyMode !== undefined) updates.isEmergencyMode = isEmergencyMode;
 
     if (Object.keys(updates).length > 0) {
       const dRef = doc(db, 'settings', settings._id);
       await updateDoc(dRef, updates);
       settings = { ...settings, ...updates };
+
+      // Immediately broadcast out an emergency toggle if it was touched
+      if (isEmergencyMode !== undefined) {
+          const io = req.app.get('io');
+          if (io) io.emit('emergency_status', isEmergencyMode);
+      }
     }
     
     res.json(settings);

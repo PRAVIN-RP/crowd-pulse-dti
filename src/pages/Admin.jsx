@@ -14,6 +14,7 @@ const Admin = () => {
   const [tempWarningLimit, setTempWarningLimit] = useState(75);
   const [sysLogs, setSysLogs] = useState([]);
   const [usersList, setUsersList] = useState([]);
+  const { isEmergencyMode } = useDashboard();
   
   // Broadcast State
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -188,6 +189,25 @@ const Admin = () => {
               </div>
               <div className="mt-6">
                  <button className="btn-primary" onClick={handleSaveSettings}>Apply All Settings</button>
+              </div>
+
+              <div className="setting-group border-top pt-6 mt-6">
+                 <h4 className="mb-4 text-danger flex-center-left"><ShieldAlert size={20} className="mr-2"/> Danger Zone</h4>
+                 <div className="p-4 rounded border-danger" style={{ backgroundColor: 'var(--danger-glow)'}}>
+                    <div className="flex-between">
+                       <div>
+                          <h4 className="text-danger font-bold">SMART CITY EMERGENCY OVERRIDE</h4>
+                          <p className="text-sm mt-1 text-danger">Activating this will force all Personnel Dashboards into full-screen Emergency Evacuation Mode.</p>
+                       </div>
+                       <button 
+                         className="btn-primary" 
+                         style={{ backgroundColor: isEmergencyMode ? 'var(--bg-card)' : 'var(--danger)', color: isEmergencyMode ? 'var(--text-primary)' : 'white', border: isEmergencyMode ? '1px solid var(--border-color)' : 'none' }}
+                         onClick={() => updateSettings({ isEmergencyMode: !isEmergencyMode })}
+                       >
+                         {isEmergencyMode ? 'DEACTIVATE EMERGENCY' : 'TRIGGER EVACUATION PROTOCOL'}
+                       </button>
+                    </div>
+                 </div>
               </div>
 
               <div className="setting-group border-top pt-4 mt-6">

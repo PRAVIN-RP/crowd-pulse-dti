@@ -10,6 +10,7 @@ export const DashboardProvider = ({ children }) => {
   const { user } = useAuth();
   const [maxCrowdLimit, setMaxCrowdLimit] = useState(100);
   const [warningLimit, setWarningLimit] = useState(75);
+  const [isEmergencyMode, setIsEmergencyMode] = useState(false);
   const [sensorData, setSensorData] = useState({
     peopleCount: 0,
     temperature: 0,
@@ -24,6 +25,7 @@ export const DashboardProvider = ({ children }) => {
   const [socketConnected, setSocketConnected] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [activeBroadcast, setActiveBroadcast] = useState(null);
+  const [aiPrediction, setAiPrediction] = useState({ forecastedCount: 0, riskLevel: 'Low', suggestion: 'Normal operation.' });
 
   useEffect(() => {
     if (!user?.token) return;
@@ -37,6 +39,7 @@ export const DashboardProvider = ({ children }) => {
           const data = await res.json();
           setMaxCrowdLimit(data.maxCrowdLimit || 100);
           setWarningLimit(data.warningLimit || 75);
+          setIsEmergencyMode(data.isEmergencyMode || false);
         }
       } catch (err) {
         console.error("Error fetching settings:", err);
@@ -111,10 +114,48 @@ export const DashboardProvider = ({ children }) => {
       setActiveBroadcast(broadcast);
     });
 
+    newSocket.on('emergency_status', (status) => {
+      setIsEmergencyMode(status);
+    });
+
     return () => {
       newSocket.disconnect();
     };
   }, [user, serialStatus]);
+
+  // AI Prediction Engine (Calculates forecasted capacity using velocity of history array)
+  useEffect(() => {
+    if (sensorData.history.length < 5) return;
+
+    // Linear regression proxy: get start vs current
+    const recentHistory = sensorData.history.slice(-10); // Look at last 10 points
+    const startObj = recentHistory[0];
+    const endObj = recentHistory[recentHistory.length - 1];
+    
+    const countDiff = endObj.people - startObj.people;
+    // Assuming 1 data point = approx 3 seconds, meaning 10 points = 30 seconds.
+    // To predict 10 minutes out (600 seconds) -> multiply by 20.
+    let velocity = (countDiff / recentHistory.length) * 20; 
+
+    let forecast = Math.max(0, Math.floor(endObj.people + velocity));
+    
+    let risk = 'Low';
+    let sug = 'System normal. No action required.';
+
+    if (forecast >= maxCrowdLimit) {
+       risk = 'High';
+       sug = 'Critical: Crowd projected to exceed maximum capacity. Prepare redirection protocols.';
+    } else if (forecast >= warningLimit) {
+       risk = 'Medium';
+       sug = 'Notice: Crowd growing steadily. Consider opening additional lanes.';
+    }
+
+    setAiPrediction({
+       forecastedCount: forecast,
+       riskLevel: risk,
+       suggestion: sug
+    });
+  }, [sensorData.history, maxCrowdLimit, warningLimit]);
 
   const connectSerial = async () => {
     if (!('serial' in navigator)) {
@@ -224,6 +265,7 @@ export const DashboardProvider = ({ children }) => {
         const data = await res.json();
         if (data.maxCrowdLimit) setMaxCrowdLimit(data.maxCrowdLimit);
         if (data.warningLimit) setWarningLimit(data.warningLimit);
+        if (data.isEmergencyMode !== undefined) setIsEmergencyMode(data.isEmergencyMode);
       } else {
         alert("Failed to update settings. Admin access required.");
       }
@@ -294,7 +336,9 @@ export const DashboardProvider = ({ children }) => {
       darkMode,
       setDarkMode,
       activeBroadcast,
-      setActiveBroadcast
+      setActiveBroadcast,
+      isEmergencyMode,
+      aiPrediction
     }}>
       {children}
     </DashboardContext.Provider>
