@@ -20,6 +20,16 @@
   border: 1px solid var(--danger);
 }
 
+.status-banner.warning {
+  background: linear-gradient(135deg, hsl(38, 92%, 40%), hsl(38, 90%, 20%));
+  border: 1px solid var(--warning);
+}
+
+.status-banner.primary {
+  background: linear-gradient(135deg, hsl(210, 100%, 40%), hsl(210, 100%, 25%));
+  border: 1px solid var(--primary);
+}
+
 .status-icon-wrapper {
   display: flex;
   align-items: center;

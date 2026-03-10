@@ -3,17 +3,27 @@ import { useDashboard } from '../context/DashboardContext';
 import MetricCard from '../components/dashboard/MetricCard';
 import CrowdStatusBanner from '../components/dashboard/CrowdStatusBanner';
 import DataChart from '../components/charts/DataChart';
+import CameraAI from '../components/dashboard/CameraAI';
 import { useState, useEffect, useRef } from 'react';
 import './Dashboard.css';
 
 const Dashboard = () => {
-  const { sensorData, maxCrowdLimit, warningLimit, isOvercrowded, connectSerial, disconnectSerial, serialStatus, socketConnected, activeBroadcast, setActiveBroadcast, isEmergencyMode, aiPrediction } = useDashboard();
+  const { sensorData, maxCrowdLimit, warningLimit, isOvercrowded, connectSerial, disconnectSerial, serialStatus, socketConnected, activeBroadcast, setActiveBroadcast, isEmergencyMode, aiPrediction, cameraCount } = useDashboard();
   const [selectedLocation, setSelectedLocation] = useState('Zone-A (Main Hall)');
   const [audioEnabled, setAudioEnabled] = useState(false);
   const audioRef = useRef(new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'));
 
+  // Data Fusion: The highest count is the source of truth for safety
+  const hybridCount = Math.max(sensorData.peopleCount, cameraCount);
+  const fusedOvercrowded = hybridCount >= maxCrowdLimit;
+
+  let densityCategory = 'Safe';
+  if (hybridCount >= maxCrowdLimit) densityCategory = 'Overcrowded';
+  else if (hybridCount >= warningLimit) densityCategory = 'High';
+  else if (hybridCount >= warningLimit * 0.5) densityCategory = 'Moderate';
+
   useEffect(() => {
-     if (audioEnabled && (isOvercrowded || isEmergencyMode)) {
+     if (audioEnabled && (fusedOvercrowded || isEmergencyMode)) {
         // Play the alert sound looping
         audioRef.current.loop = true;
         audioRef.current.play().catch(e => console.log("Audio play blocked by browser."));
@@ -25,7 +35,7 @@ const Dashboard = () => {
      return () => {
         audioRef.current.pause();
      };
-  }, [isOvercrowded, isEmergencyMode, audioEnabled]);
+  }, [fusedOvercrowded, isEmergencyMode, audioEnabled]);
 
   if (isEmergencyMode) {
      return (
@@ -37,7 +47,7 @@ const Dashboard = () => {
               All personnel are to immediately halt standard operations and begin redirecting all crowds to the nearest emergency exits.
            </p>
            <div style={{ marginTop: '3rem', padding: '2rem', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: '1rem', border: '2px solid rgba(255,255,255,0.2)' }}>
-              <h2 style={{ fontSize: '2rem', textAlign: 'center' }}>CURRENT LOAD: {sensorData.peopleCount} SOULS</h2>
+              <h2 style={{ fontSize: '2rem', textAlign: 'center' }}>CURRENT LOAD: {hybridCount} SOULS</h2>
               <p style={{ textAlign: 'center', marginTop: '0.5rem' }}>Do not return to normal operations until the Administrator deactivates this override.</p>
            </div>
         </div>
@@ -92,8 +102,8 @@ const Dashboard = () => {
       </header>
 
       <CrowdStatusBanner 
-        isOvercrowded={isOvercrowded}
-        peopleCount={sensorData.peopleCount}
+        densityCategory={densityCategory}
+        peopleCount={hybridCount}
         maxLimit={maxCrowdLimit}
       />
 
@@ -114,11 +124,11 @@ const Dashboard = () => {
 
       <div className="metrics-grid">
         <MetricCard
-          title="Total People"
-          value={sensorData.peopleCount}
+          title="Total People (Fused AI)"
+          value={hybridCount}
           icon={Users}
-          colorClass={sensorData.peopleCount >= maxCrowdLimit ? 'danger' : (sensorData.peopleCount >= warningLimit ? 'warning' : 'success')}
-          subtext={`Distance Sensors: Entry ${sensorData.lastEntryDistance || 0}mm / Exit ${sensorData.lastExitDistance || 0}mm`}
+          colorClass={hybridCount >= maxCrowdLimit ? 'danger' : (hybridCount >= warningLimit ? 'warning' : 'success')}
+          subtext={`Sources: Camera (${cameraCount}) | Sensor (${sensorData.peopleCount})`}
         />
         
         <MetricCard
@@ -161,12 +171,12 @@ const Dashboard = () => {
            <div style={{ flex: 2, borderRight: '2px solid var(--border-color)', position: 'relative', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
              <h4 className="text-muted z-10" style={{ position: 'absolute', top: '10px', left: '10px'}}>Zone A (Main)</h4>
              
-             {/* Heat Blob */}
+              {/* Heat Blob */}
              <div style={{
                 position: 'absolute',
                 width: '150%',
                 height: '150%',
-                background: `radial-gradient(circle, ${isOvercrowded ? 'var(--danger)' : sensorData.peopleCount >= warningLimit ? 'var(--warning)' : 'var(--success)'} 0%, transparent 70%)`,
+                background: `radial-gradient(circle, ${densityCategory === 'Overcrowded' ? 'var(--danger)' : densityCategory === 'High' ? 'var(--warning)' : densityCategory === 'Moderate' ? 'var(--primary)' : 'var(--success)'} 0%, transparent 70%)`,
                 opacity: Math.min((sensorData.peopleCount / maxCrowdLimit) * 0.6, 0.8),
                 transition: 'opacity 1s ease-in-out, background 1s ease-in-out',
                 zIndex: 1,
@@ -216,29 +226,14 @@ const Dashboard = () => {
               </div>
               <div className="flex-grow" style={{ minWidth: '300px' }}>
                  <p className="text-secondary text-sm font-bold uppercase tracking-wider">Intelligent Suggestion</p>
-                 <p className={`mt-1 font-bold ${aiPrediction.riskLevel === 'High' ? 'text-danger' : ''}`}>{aiPrediction.suggestion}</p>
+                 <p className={`mt-1 font-bold ${aiPrediction.riskLevel === 'High' ? 'text-danger' : 'text-primary'}`}>{aiPrediction.suggestion}</p>
               </div>
            </div>
         </div>
       </div>
 
-      <div className="card mt-4">
-        <div className="card-header pb-2 border-bottom flex-between">
-           <h3><Camera size={18} className="mr-2 inline" /> Live CCTV Verification</h3>
-           <span className="badge text-xs bg-danger-glow text-danger border border-danger p-1 rounded">REC</span>
-        </div>
-        <div className="mt-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
-           <div className="p-4 bg-base rounded border relative flex-center" style={{ minHeight: '180px', overflow: 'hidden' }}>
-              <div className="absolute top-2 left-2 text-xs bg-black bg-opacity-50 text-white px-2 py-1 rounded">Cam 01: Entrance</div>
-              <Camera size={48} className="opacity-20 text-muted" />
-              <div className="absolute inset-0 bg-primary opacity-5 animate-pulse rounded" style={{ pointerEvents: 'none' }}></div>
-           </div>
-           <div className="p-4 bg-base rounded border relative flex-center" style={{ minHeight: '180px', overflow: 'hidden' }}>
-              <div className="absolute top-2 left-2 text-xs bg-black bg-opacity-50 text-white px-2 py-1 rounded">Cam 02: Main Hall</div>
-              <Camera size={48} className="opacity-20 text-muted" />
-           </div>
-        </div>
-      </div>
+      {/* Live AI Camera Override */}
+      <CameraAI />
 
       <div className="charts-grid mt-4">
         <div className="card">
@@ -248,8 +243,8 @@ const Dashboard = () => {
           </div>
           <DataChart 
             data={sensorData.history} 
-            dataKey="people"
-            name="People"
+            dataKey="fused"
+            name="Fused Count"
             color="var(--primary)"
             maxLimit={maxCrowdLimit}
             showLimit={true}

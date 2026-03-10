@@ -117,7 +117,7 @@ router.delete('/users/:id', protect, async (req, res) => {
     }
     // Prevent deleting the main admin
     if (user.username === 'admin') {
-       return res.status(400).json({ message: 'Cannot delete root admin' });
+      return res.status(400).json({ message: 'Cannot delete root admin' });
     }
     await User.findByIdAndDelete(req.params.id);
     res.json({ message: 'User removed' });
@@ -137,7 +137,7 @@ router.put('/users/:id/reset', protect, async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
     // Default reset password
     user.password = 'password';
     await user.save();
