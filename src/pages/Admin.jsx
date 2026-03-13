@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { useAuth } from '../context/AuthContext';
-import { Settings, ShieldAlert, Cpu, Users, BarChart2, Activity, MapPin, Send } from 'lucide-react';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { Settings, ShieldAlert, Cpu, Users, BarChart2, Activity, MapPin, Send, FileWarning, Download } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import './Admin.css';
 
 const Admin = () => {
@@ -14,6 +14,7 @@ const Admin = () => {
   const [tempWarningLimit, setTempWarningLimit] = useState(75);
   const [sysLogs, setSysLogs] = useState([]);
   const [usersList, setUsersList] = useState([]);
+  const [incidents, setIncidents] = useState([]);
   const { isEmergencyMode } = useDashboard();
   
   // Broadcast State
@@ -68,9 +69,12 @@ const Admin = () => {
     e.preventDefault();
     setUserError('');
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch('/api/auth/admin/create-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`
+        },
         body: JSON.stringify(newUserData)
       });
       const data = await res.json();
@@ -94,9 +98,45 @@ const Admin = () => {
     } catch(e) { console.error(e) }
   };
 
+  const fetchIncidents = async () => {
+    if (!user?.token) return;
+    try {
+      const res = await fetch('/api/incidents', { headers: { Authorization: `Bearer ${user.token}` } });
+      if (res.ok) setIncidents(await res.json());
+    } catch(e) { console.error(e); }
+  };
+
+  const updateIncidentStatus = async (id, status) => {
+    try {
+      await fetch(`/api/incidents/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+        body: JSON.stringify({ status })
+      });
+      fetchIncidents();
+    } catch(e) { console.error(e); }
+  };
+
+  const exportLogsCSV = () => {
+    if (!sysLogs.length) { alert('No logs to export. Load the Alerts & Logs tab first.'); return; }
+    const headers = ['Time', 'Event', 'Description'];
+    const rows = sysLogs.map(l => [
+      new Date(l.timestamp).toLocaleString(),
+      l.action,
+      l.message
+    ]);
+    const csvContent = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `crowdpulse_logs_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
     if (activeTab === 'users') fetchUsers();
     if (activeTab === 'logs') fetchLogs();
+    if (activeTab === 'incidents') fetchIncidents();
   }, [activeTab]);
 
   return (
@@ -119,6 +159,14 @@ const Admin = () => {
            </button>
            <button className={`tab-btn ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>
              <ShieldAlert size={18} /> Alerts & Logs
+           </button>
+           <button className={`tab-btn ${activeTab === 'incidents' ? 'active' : ''}`} onClick={() => setActiveTab('incidents')}>
+             <FileWarning size={18} /> Incidents
+             {incidents.filter(i => i.status === 'open').length > 0 && (
+               <span style={{ marginLeft: 'auto', background: 'var(--danger)', color: 'white', borderRadius: '10px', padding: '1px 7px', fontSize: '0.7rem', fontWeight: 700 }}>
+                 {incidents.filter(i => i.status === 'open').length}
+               </span>
+             )}
            </button>
            <button className={`tab-btn ${activeTab === 'devices' ? 'active' : ''}`} onClick={() => setActiveTab('devices')}>
              <Cpu size={18} /> Device Management
@@ -298,12 +346,11 @@ const Admin = () => {
           {activeTab === 'analytics' && (
              <div className="grid gap-6">
                 <div className="card">
-                   <h3 className="mb-4">Historical Analytics</h3>
-                   <p className="text-muted mb-6">Simulated analytics for the past 7 days based on current constraints.</p>
-                   
-                   <div style={{ width: '100%', height: 300 }}>
+                   <h3 className="mb-4">Weekly Peak Crowd Pattern</h3>
+                   <p className="text-muted mb-4">Simulated peak and average crowd for the past 7 days.</p>
+                   <div style={{ width: '100%', height: 260 }}>
                      <ResponsiveContainer>
-                        <AreaChart data={[
+                        <BarChart data={[
                            { day: 'Mon', peak: 85, avg: 40 },
                            { day: 'Tue', peak: 102, avg: 50 },
                            { day: 'Wed', peak: Math.floor(maxCrowdLimit * 1.1), avg: 60 },
@@ -312,31 +359,77 @@ const Admin = () => {
                            { day: 'Sat', peak: Math.floor(maxCrowdLimit * 1.5), avg: 110 },
                            { day: 'Sun', peak: Math.floor(maxCrowdLimit * 0.9), avg: 70 },
                         ]}>
-                          <defs>
-                            <linearGradient id="colorPeak" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
-                              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
                           <XAxis dataKey="day" stroke="var(--text-muted)" />
                           <YAxis stroke="var(--text-muted)" />
                           <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
-                          <Area type="monotone" dataKey="peak" stroke="var(--primary)" fillOpacity={1} fill="url(#colorPeak)" name="Peak Crowd" />
-                          <Area type="monotone" dataKey="avg" stroke="var(--success)" fillOpacity={0.2} fill="var(--success)" name="Average Crowd" />
-                        </AreaChart>
+                          <Bar dataKey="peak" fill="var(--primary)" name="Peak Crowd" radius={[4,4,0,0]} />
+                          <Bar dataKey="avg" fill="var(--success)" fillOpacity={0.6} name="Average" radius={[4,4,0,0]} />
+                        </BarChart>
                      </ResponsiveContainer>
                    </div>
                 </div>
 
                 <div className="card">
-                   <h3 className="mb-4">Export Compliance Records</h3>
-                   <div className="flex gap-4">
-                     <button className="btn-primary outline" onClick={() => alert("Generating CSV Export...")}>Download Last 30 Days (CSV)</button>
-                     <button className="btn-primary" style={{ backgroundColor: 'var(--success)', border: 'none' }} onClick={() => alert("Generating PDF Report...")}>Generate Compliance PDF</button>
+                   <div className="flex-between mb-4">
+                     <div>
+                       <h3>Alert Summary</h3>
+                       <p className="text-muted text-sm mt-1">Active incidents: <strong className="text-danger">{incidents.filter(i => i.status === 'open').length}</strong> &nbsp;•&nbsp; Total alerts logged: <strong>{alerts.length}</strong></p>
+                     </div>
+                     <button
+                       className="btn-primary"
+                       style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                       onClick={exportLogsCSV}
+                     >
+                       <Download size={16} /> Export Logs CSV
+                     </button>
                    </div>
+                   <p className="text-muted text-sm">Go to <strong>Alerts & Logs</strong> tab first to load log data, then click Export.</p>
                 </div>
              </div>
+          )}
+
+          {activeTab === 'incidents' && (
+            <div className="card">
+              <div className="flex-between mb-4">
+                <h3>Incident Reports</h3>
+                <button className="btn outline border text-sm" onClick={fetchIncidents}>↻ Refresh</button>
+              </div>
+              {incidents.length === 0 ? (
+                <p className="text-muted text-center p-6">No incidents reported yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {incidents.map(inc => (
+                    <div key={inc._id} className="border rounded p-4" style={{
+                      borderLeft: `4px solid ${inc.severity === 'high' ? 'var(--danger)' : inc.severity === 'medium' ? 'var(--warning)' : 'var(--success)'}`
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span className="font-bold">{inc.title}</span>
+                            <span className="text-xs text-muted">• {inc.zone}</span>
+                          </div>
+                          <p className="text-sm text-secondary mt-1">{inc.description}</p>
+                          <p className="text-xs text-muted mt-2">Reported by <strong>{inc.reportedBy}</strong> • {new Date(inc.timestamp).toLocaleString()}</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                          {inc.status === 'open' && (
+                            <button className="text-primary text-sm hover:underline" onClick={() => updateIncidentStatus(inc._id, 'acknowledged')}>Acknowledge</button>
+                          )}
+                          {inc.status !== 'resolved' && (
+                            <button className="text-success text-sm hover:underline" onClick={() => updateIncidentStatus(inc._id, 'resolved')}>Resolve</button>
+                          )}
+                          <span className="text-xs font-bold px-2 py-1 rounded" style={{
+                            backgroundColor: inc.status === 'resolved' ? 'rgba(16,185,129,0.1)' : inc.status === 'acknowledged' ? 'rgba(99,102,241,0.1)' : 'rgba(239,68,68,0.1)',
+                            color: inc.status === 'resolved' ? 'var(--success)' : inc.status === 'acknowledged' ? 'var(--primary)' : 'var(--danger)'
+                          }}>{inc.status.toUpperCase()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {activeTab === 'users' && (
@@ -351,6 +444,7 @@ const Admin = () => {
                     <tr className="border-bottom">
                       <th className="p-2">Username</th>
                       <th className="p-2">Role</th>
+                      <th className="p-2">Duty</th>
                       <th className="p-2">Actions</th>
                     </tr>
                   </thead>
@@ -360,18 +454,54 @@ const Admin = () => {
                     ) : (
                       usersList.map(u => (
                         <tr key={u._id} className="border-bottom">
-                          <td className="p-2">{u.username}</td>
-                          <td className="p-2 uppercase text-sm">{u.role}</td>
+                          <td className="p-2 font-bold">{u.username}</td>
                           <td className="p-2">
-                             <button className="text-warning mr-4 text-sm hover:underline" onClick={() => alert(`Reset password for ${u.username}?`)}>Reset Pwd</button>
-                             {u.username !== 'admin' && (
-                               <button className="text-danger text-sm hover:underline" onClick={async () => {
-                                 if (window.confirm(`Delete user ${u.username}?`)) {
-                                     await fetch(`/api/auth/users/${u._id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${user.token}` }});
-                                     fetchUsers();
-                                 }
-                               }}>Delete</button>
-                             )}
+                            <span className={`px-2 py-1 rounded text-xs font-bold ${u.role === 'admin' ? 'text-warning' : 'text-primary'}`}
+                              style={{ backgroundColor: u.role === 'admin' ? 'rgba(245,158,11,0.1)' : 'rgba(99,102,241,0.1)' }}>
+                              {u.role === 'admin' ? '⬡ Administrator' : '● Personnel'}
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              fontSize: '0.75rem', fontWeight: 600,
+                              color: u.onDuty ? 'var(--success)' : 'var(--text-muted)'
+                            }}>
+                              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: u.onDuty ? 'var(--success)' : 'var(--border-color)', display: 'inline-block' }} />
+                              {u.onDuty ? 'On Duty' : 'Off Duty'}
+                            </span>
+                          </td>
+                          <td className="p-2" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            {/* Promote / Demote role */}
+                            {u.username !== 'admin' && (
+                              <button
+                                className={`text-sm hover:underline ${u.role === 'admin' ? 'text-warning' : 'text-primary'}`}
+                                onClick={async () => {
+                                  const newRole = u.role === 'admin' ? 'user' : 'admin';
+                                  const label = newRole === 'admin' ? 'promote to Administrator' : 'demote to Personnel';
+                                  if (window.confirm(`Are you sure you want to ${label} "${u.username}"?`)) {
+                                    const res = await fetch(`/api/auth/users/${u._id}/role`, {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
+                                      body: JSON.stringify({ role: newRole })
+                                    });
+                                    if (res.ok) fetchUsers();
+                                    else alert('Failed to update role');
+                                  }
+                                }}
+                              >
+                                {u.role === 'admin' ? '↓ Demote' : '↑ Promote'}
+                              </button>
+                            )}
+                            <button className="text-warning text-sm hover:underline" onClick={() => alert(`Reset password for ${u.username}?`)}>Reset Pwd</button>
+                            {u.username !== 'admin' && (
+                              <button className="text-danger text-sm hover:underline" onClick={async () => {
+                                if (window.confirm(`Delete user ${u.username}?`)) {
+                                    await fetch(`/api/auth/users/${u._id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${user.token}` }});
+                                    fetchUsers();
+                                }
+                              }}>Delete</button>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -380,6 +510,7 @@ const Admin = () => {
                 </table>
               </div>
             </div>
+
           )}
 
         </div>

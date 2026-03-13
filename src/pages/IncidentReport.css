@@ -1,0 +1,21 @@
+.incident-page {
+  max-width: 1100px;
+}
+
+.incident-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.incident-form-card {
+  position: sticky;
+  top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .incident-layout {
+    grid-template-columns: 1fr;
+  }
+}

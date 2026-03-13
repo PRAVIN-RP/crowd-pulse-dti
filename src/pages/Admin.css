@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  animation: fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .admin-grid {
@@ -108,10 +109,18 @@
   border-radius: var(--radius-md);
   border-left: 4px solid transparent;
   background-color: var(--bg-base);
+  transition: all var(--transition-normal);
+  cursor: default;
+}
+
+.alert-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 20px -8px rgba(0,0,0,0.4);
 }
 
 .alert-item.danger {
   border-left-color: var(--danger);
+  background: linear-gradient(90deg, var(--danger-subtle, rgba(239,68,68,0.06)), transparent);
 }
 
 .alert-time {
@@ -141,26 +150,45 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1rem 1.5rem;
+  padding: 0.875rem 1.25rem;
   background: transparent;
   color: var(--text-secondary);
   border: none;
   border-left: 3px solid transparent;
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  transition: all var(--transition-fast);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--primary-subtle), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
 }
 
 .tab-btn:hover {
-  background-color: var(--bg-card-hover);
+  background: rgba(255,255,255,0.03);
   color: var(--text-primary);
+  transform: translateX(3px);
 }
 
 .tab-btn.active {
-  background-color: var(--primary-glow);
+  background: linear-gradient(90deg, var(--primary-subtle), rgba(59,130,246,0.02));
   color: var(--primary);
   border-left-color: var(--primary);
+  font-weight: 600;
+}
+
+.tab-btn.active::before { opacity: 1; }
+
+.tab-btn.active svg {
+  filter: drop-shadow(0 0 5px var(--primary-glow));
 }
 
 .table-responsive {

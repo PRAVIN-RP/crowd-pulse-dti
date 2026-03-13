@@ -1,0 +1,76 @@
+/* ── Weekly Heatmap Grid ── */
+.heatmap-grid {
+  animation: fade-in-scale 0.45s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+.heatmap-body {
+  margin-top: 1rem;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.hm-hour-labels {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  padding-left: 34px;
+}
+
+.hm-corner { width: 0; }
+
+.hm-hour {
+  flex: 1;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-weight: 600;
+  min-width: 28px;
+}
+
+.hm-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.hm-day {
+  width: 30px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: 4px;
+  flex-shrink: 0;
+}
+
+.hm-cell {
+  flex: 1;
+  min-width: 28px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--cell-bg);
+  opacity: var(--cell-opacity);
+  transition: opacity 0.4s, transform 0.15s;
+  cursor: pointer;
+}
+
+.hm-cell:hover {
+  opacity: 1 !important;
+  transform: scale(1.15);
+  z-index: 2;
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--cell-bg) 50%, transparent);
+}
+
+/* Current timeslot pulses */
+.hm-cell--now {
+  opacity: 1 !important;
+  box-shadow: 0 0 0 2px var(--cell-bg), 0 0 8px color-mix(in srgb, var(--cell-bg) 60%, transparent);
+  animation: cell-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cell-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--cell-bg); }
+  50%       { box-shadow: 0 0 0 4px var(--cell-bg), 0 0 14px color-mix(in srgb, var(--cell-bg) 60%, transparent); }
+}

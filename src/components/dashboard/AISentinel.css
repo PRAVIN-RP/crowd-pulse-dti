@@ -1,0 +1,132 @@
+/* ── AI Sentinel ── */
+.ai-sentinel { animation: fade-in-scale 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+
+.sentinel-body {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+/* Ring */
+.ring-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.ring-svg {
+  filter: drop-shadow(0 0 12px var(--primary-glow));
+  transition: filter 0.5s;
+}
+
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  background: color-mix(in srgb, var(--risk-color) 12%, transparent);
+  color: var(--risk-color);
+  border: 1px solid color-mix(in srgb, var(--risk-color) 30%, transparent);
+  animation: fade-in 0.3s ease both;
+}
+
+/* Detail panel */
+.sentinel-detail {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.forecast-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  background: var(--bg-base);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.875rem;
+  border: 1px solid var(--border-color);
+}
+
+.forecast-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.forecast-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.sentinel-suggestion {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-style: italic;
+  border-left: 3px solid var(--primary);
+  padding-left: 0.75rem;
+  margin: 0;
+}
+
+/* Threat matrix grid */
+.matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.matrix-cell {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  padding: 8px 6px 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.matrix-cell:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--cell-color) 40%, transparent);
+  z-index: 1;
+}
+
+.cell-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--cell-color);
+  opacity: calc(var(--cell-pct) * 0.0025);
+}
+
+.cell-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  z-index: 1;
+}
+
+.cell-pct {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--cell-color);
+  font-family: 'Space Grotesk', sans-serif;
+  z-index: 1;
+}

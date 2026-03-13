@@ -1,0 +1,145 @@
+/* ── Quick Response Protocols ── */
+.quick-actions {
+  animation: fade-in-scale 0.45s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+.reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: transparent;
+}
+
+.reset-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+.qa-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 1.25rem;
+}
+
+.qa-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.qa-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--btn-color) 10%, transparent), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+  border-radius: inherit;
+}
+
+.qa-btn:hover:not(:disabled) {
+  border-color: var(--btn-color);
+  transform: translateX(4px);
+  box-shadow: 0 4px 20px -6px color-mix(in srgb, var(--btn-color) 40%, transparent);
+}
+
+.qa-btn:hover:not(:disabled)::before { opacity: 1; }
+
+.qa-btn:disabled:not(.qa-btn--done) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Loading state */
+.qa-btn--loading {
+  border-color: var(--btn-color) !important;
+  animation: qa-shimmer 1.2s linear infinite;
+}
+
+@keyframes qa-shimmer {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--btn-color) 25%, transparent); }
+  50%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--btn-color) 10%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Done state */
+.qa-btn--done {
+  border-color: var(--success) !important;
+  background: color-mix(in srgb, var(--success) 6%, transparent) !important;
+  cursor: default !important;
+}
+
+.qa-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--btn-color) 15%, transparent);
+  color: var(--btn-color);
+  flex-shrink: 0;
+  transition: transform var(--transition-bounce);
+}
+
+.qa-btn:hover:not(:disabled) .qa-icon {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+.qa-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.qa-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.qa-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.qa-done-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  flex-shrink: 0;
+}
+
+/* Spinner */
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

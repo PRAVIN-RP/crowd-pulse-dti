@@ -38,13 +38,13 @@ export const AuthProvider = ({ children }) => {
         setUser(data);
         localStorage.setItem('auth_user', JSON.stringify(data));
         
-        // Redirect to intended page or dashboard
-        const from = location.state?.from?.pathname || "/";
+        // Redirect based on role — admins go to /admin, personnel go to /
+        const defaultDest = data.role === 'admin' ? '/admin' : '/';
+        const from = location.state?.from?.pathname || defaultDest;
         navigate(from, { replace: true });
         return { success: true };
       } else {
-        alert(data.message || 'Login failed');
-        return { success: false, message: data.message };
+        return { success: false, message: data.message || 'Login failed' };
       }
     } catch (error) {
       console.error("Login error", error);
@@ -67,12 +67,12 @@ export const AuthProvider = ({ children }) => {
         setUser(data);
         localStorage.setItem('auth_user', JSON.stringify(data));
         
-        const from = location.state?.from?.pathname || "/";
+        // New personnel accounts go to /
+        const from = location.state?.from?.pathname || '/';
         navigate(from, { replace: true });
         return { success: true };
       } else {
-        alert(data.message || 'Registration failed');
-        return { success: false, message: data.message };
+        return { success: false, message: data.message || 'Registration failed' };
       }
     } catch (error) {
       console.error("Registration error", error);

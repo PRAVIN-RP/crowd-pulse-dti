@@ -1,5 +1,6 @@
-import { MapPin, Users, Thermometer, Droplets, Activity, Usb, Bell, X, AlertTriangle, BrainCircuit, Volume2, VolumeX, Camera, QrCode } from 'lucide-react';
+import { MapPin, Users, Thermometer, Droplets, Activity, Usb, Bell, X, AlertTriangle, BrainCircuit, Volume2, VolumeX, QrCode } from 'lucide-react';
 import { useDashboard } from '../context/DashboardContext';
+import { useAuth } from '../context/AuthContext';
 import MetricCard from '../components/dashboard/MetricCard';
 import CrowdStatusBanner from '../components/dashboard/CrowdStatusBanner';
 import DataChart from '../components/charts/DataChart';
@@ -9,6 +10,7 @@ import './Dashboard.css';
 
 const Dashboard = () => {
   const { sensorData, maxCrowdLimit, warningLimit, isOvercrowded, connectSerial, disconnectSerial, serialStatus, socketConnected, activeBroadcast, setActiveBroadcast, isEmergencyMode, aiPrediction, cameraCount } = useDashboard();
+  const { isAdmin } = useAuth();
   const [selectedLocation, setSelectedLocation] = useState('Zone-A (Main Hall)');
   const [audioEnabled, setAudioEnabled] = useState(false);
   const audioRef = useRef(new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'));
@@ -23,9 +25,13 @@ const Dashboard = () => {
   else if (hybridCount >= warningLimit * 0.5) densityCategory = 'Moderate';
 
   useEffect(() => {
-     if (audioEnabled && (fusedOvercrowded || isEmergencyMode)) {
+     // Automatically play alarms when limits are exceeded
+     const shouldPlayAlarm = fusedOvercrowded || isEmergencyMode;
+
+     if (shouldPlayAlarm) {
         // Play the alert sound looping
         audioRef.current.loop = true;
+        audioRef.current.volume = isEmergencyMode ? 1.0 : 0.8; // Louder for emergency
         audioRef.current.play().catch(e => console.log("Audio play blocked by browser."));
      } else {
         audioRef.current.pause();
@@ -35,7 +41,7 @@ const Dashboard = () => {
      return () => {
         audioRef.current.pause();
      };
-  }, [fusedOvercrowded, isEmergencyMode, audioEnabled]);
+  }, [fusedOvercrowded, isEmergencyMode]);
 
   if (isEmergencyMode) {
      return (
@@ -72,32 +78,47 @@ const Dashboard = () => {
              </select>
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="btn outline border text-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => alert("Scanner interface initializing...")}>
-             <QrCode size={18} />
-             Scan Entry QR
-          </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {/* Admin-only hardware controls */}
+          {isAdmin && (
+            <button className="btn outline border text-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => alert("Scanner interface initializing...")}>
+               <QrCode size={18} />
+               Scan Entry QR
+            </button>
+          )}
           <div className="flex-center mx-4" style={{ gap: '8px' }}>
              <span className={`dot ${socketConnected ? 'online' : 'offline'}`} style={{ width: '12px', height: '12px'}}></span>
              <span className="text-secondary text-sm">IoT Link: {socketConnected ? 'Active' : 'Offline'}</span>
           </div>
           <button 
-             className={`btn ${audioEnabled ? 'btn-primary' : 'outline text-secondary border'}`}
-             onClick={() => setAudioEnabled(!audioEnabled)}
+             className={`btn ${(fusedOvercrowded || isEmergencyMode) ? 'btn-danger animate-pulse' : audioEnabled ? 'btn-primary' : 'outline text-secondary border'}`}
+             onClick={() => {
+               if (fusedOvercrowded || isEmergencyMode) {
+                 // Silence alarms
+                 audioRef.current.pause();
+                 audioRef.current.currentTime = 0;
+               } else {
+                 setAudioEnabled(!audioEnabled);
+               }
+             }}
              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.4rem 0.8rem' }}
-             title="Toggle Audio Alerts"
+             title={(fusedOvercrowded || isEmergencyMode) ? 'Silence Alarms' : 'Toggle Audio Alerts'}
           >
-             {audioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />} 
+             {(fusedOvercrowded || isEmergencyMode) ? <VolumeX size={18} /> : audioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />} 
+             {(fusedOvercrowded || isEmergencyMode) ? 'SILENCE' : audioEnabled ? 'Audio On' : 'Audio Off'}
           </button>
-          <button 
-            className={`btn ${serialStatus === 'connected' ? 'btn-success' : 'btn-primary'}`}
-            onClick={serialStatus === 'connected' ? disconnectSerial : connectSerial}
-            disabled={serialStatus === 'connecting'}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <Usb size={18} />
-            {serialStatus === 'connected' ? 'Disconnect USB Sensor' : serialStatus === 'connecting' ? 'Connecting...' : 'Connect USB Sensor'}
-          </button>
+          {/* Admin-only: USB sensor management */}
+          {isAdmin && (
+            <button 
+              className={`btn ${serialStatus === 'connected' ? 'btn-success' : 'btn-primary'}`}
+              onClick={serialStatus === 'connected' ? disconnectSerial : connectSerial}
+              disabled={serialStatus === 'connecting'}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Usb size={18} />
+              {serialStatus === 'connected' ? 'Disconnect USB Sensor' : serialStatus === 'connecting' ? 'Connecting...' : 'Connect USB Sensor'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -105,6 +126,7 @@ const Dashboard = () => {
         densityCategory={densityCategory}
         peopleCount={hybridCount}
         maxLimit={maxCrowdLimit}
+        alarmActive={fusedOvercrowded || isEmergencyMode}
       />
 
       {activeBroadcast && (
@@ -163,43 +185,63 @@ const Dashboard = () => {
 
       <div className="card mt-4">
         <div className="card-header pb-2 border-bottom">
-           <h3><MapPin size={18} className="mr-2 inline" /> Interactive Floor Heatmap</h3>
+           <h3><MapPin size={18} className="mr-2 inline" /> Zone Occupancy Monitor</h3>
+           <span className="live-indicator">● LIVE</span>
         </div>
-        <div className="heatmap-container mt-4" style={{ position: 'relative', width: '100%', height: '300px', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '2px solid var(--border-color)', display: 'flex', overflow: 'hidden' }}>
-           
-           {/* Zone A - Main Hall (Active Sensor Zone) */}
-           <div style={{ flex: 2, borderRight: '2px solid var(--border-color)', position: 'relative', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-             <h4 className="text-muted z-10" style={{ position: 'absolute', top: '10px', left: '10px'}}>Zone A (Main)</h4>
-             
-              {/* Heat Blob */}
-             <div style={{
-                position: 'absolute',
-                width: '150%',
-                height: '150%',
-                background: `radial-gradient(circle, ${densityCategory === 'Overcrowded' ? 'var(--danger)' : densityCategory === 'High' ? 'var(--warning)' : densityCategory === 'Moderate' ? 'var(--primary)' : 'var(--success)'} 0%, transparent 70%)`,
-                opacity: Math.min((sensorData.peopleCount / maxCrowdLimit) * 0.6, 0.8),
-                transition: 'opacity 1s ease-in-out, background 1s ease-in-out',
-                zIndex: 1,
-                pointerEvents: 'none'
-             }} />
-
-             <div className="z-10 bg-base p-2 rounded border" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-               <span className="font-bold text-lg">{sensorData.peopleCount} / {maxCrowdLimit}</span>
-             </div>
-           </div>
-
-           {/* Zone B & C (Simulated other zones) */}
-           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ flex: 1, borderBottom: '2px solid var(--border-color)', padding: '1rem', position: 'relative', backgroundColor: 'rgba(0,0,0,0.02)' }}>
-                 <h4 className="text-muted text-sm z-10">Zone B (Entrance)</h4>
-                 {/* Secondary simulated heat */}
-                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '200%', height: '200%', background: 'radial-gradient(circle, var(--warning) 0%, transparent 70%)', opacity: 0.1, zIndex: 1, pointerEvents: 'none' }} />
+        <div className="mt-4" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {[
+            {
+              name: 'Zone A — Main Hall',
+              count: sensorData.peopleCount,
+              limit: maxCrowdLimit,
+              color: densityCategory === 'Overcrowded' ? 'var(--danger)' : densityCategory === 'High' ? 'var(--warning)' : densityCategory === 'Moderate' ? 'var(--primary)' : 'var(--success)',
+              status: densityCategory,
+            },
+            {
+              name: 'Zone B — Entrance',
+              count: Math.round(sensorData.peopleCount * 0.4),
+              limit: Math.round(maxCrowdLimit * 0.5),
+              color: 'var(--primary)',
+              status: sensorData.peopleCount * 0.4 >= maxCrowdLimit * 0.5 ? 'Overcrowded' : sensorData.peopleCount * 0.4 >= maxCrowdLimit * 0.35 ? 'High' : 'Safe',
+            },
+            {
+              name: 'Zone C — Exit Gates',
+              count: Math.round(sensorData.peopleCount * 0.2),
+              limit: Math.round(maxCrowdLimit * 0.3),
+              color: 'var(--success)',
+              status: 'Safe',
+            }
+          ].map(zone => {
+            const pct = Math.min(100, Math.round((zone.count / zone.limit) * 100));
+            const statusColor = zone.status === 'Overcrowded' ? 'var(--danger)' : zone.status === 'High' ? 'var(--warning)' : zone.status === 'Moderate' ? 'var(--primary)' : 'var(--success)';
+            return (
+              <div key={zone.name} style={{ padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div>
+                    <span className="font-bold text-sm">{zone.name}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span className="text-sm font-bold">{zone.count} <span className="text-muted font-normal">/ {zone.limit}</span></span>
+                    <span className="text-xs font-bold px-2 py-1 rounded" style={{ backgroundColor: `color-mix(in srgb, ${statusColor} 15%, transparent)`, color: statusColor }}>
+                      {zone.status.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ width: '100%', height: '10px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${pct}%`,
+                    height: '100%',
+                    borderRadius: '999px',
+                    backgroundColor: statusColor,
+                    transition: 'width 1s ease-in-out, background-color 0.5s',
+                  }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                  <span className="text-xs text-muted">{pct}% capacity</span>
+                </div>
               </div>
-              <div style={{ flex: 1, padding: '1rem', position: 'relative', backgroundColor: 'rgba(0,0,0,0.02)' }}>
-                 <h4 className="text-muted text-sm z-10">Zone C (Exit)</h4>
-              </div>
-           </div>
-           
+            );
+          })}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
-import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Info, Volume2 } from 'lucide-react';
 import './CrowdStatusBanner.css';
 
-const CrowdStatusBanner = ({ densityCategory, peopleCount, maxLimit }) => {
+const CrowdStatusBanner = ({ densityCategory, peopleCount, maxLimit, alarmActive = false }) => {
   let colorClass = 'success';
   let icon = <CheckCircle size={32} />;
   let title = 'SAFE CAPACITY';
@@ -31,7 +31,12 @@ const CrowdStatusBanner = ({ densityCategory, peopleCount, maxLimit }) => {
       </div>
       
       <div className="status-content">
-        <h2 className="status-title">{title}</h2>
+        <h2 className="status-title">
+          {title}
+          {alarmActive && (
+            <Volume2 size={20} className="alarm-indicator animate-pulse" style={{ marginLeft: '0.5rem', display: 'inline-block' }} />
+          )}
+        </h2>
         <p className="status-description">{desc}</p>
       </div>
 

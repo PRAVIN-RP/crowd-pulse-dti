@@ -6,16 +6,15 @@ import Sidebar from './components/layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
+import IncidentReport from './pages/IncidentReport';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
   
-  // Conditionally apply dark mode since DashboardProvider requires Auth token
   const dashboard = isAuthenticated ? useDashboard() : null;
   const isDark = dashboard?.darkMode || false;
   
-  // Set theme on body to override root completely
   useEffect(() => {
     if (isDark) {
       document.body.classList.add('dark');
@@ -34,6 +33,12 @@ function AppContent() {
           <Route path="/" element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/report" element={
+            <ProtectedRoute>
+              <IncidentReport />
             </ProtectedRoute>
           } />
           

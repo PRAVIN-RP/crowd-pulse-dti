@@ -7,6 +7,8 @@ import authRoutes from './routes/authRoutes.js';
 import sensorRoutes from './routes/sensorRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import logRoutes from './routes/logRoutes.js';
+import incidentRoutes from './routes/incidentRoutes.js';
+import dutyRoutes from './routes/dutyRoutes.js';
 
 dotenv.config();
 
@@ -35,6 +37,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/sensor', sensorRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/logs', logRoutes);
+app.use('/api/incidents', incidentRoutes);
+app.use('/api/duty', dutyRoutes);
 
 // Base route
 app.get('/', (req, res) => {

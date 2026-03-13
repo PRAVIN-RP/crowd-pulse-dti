@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Shield, User, Activity } from 'lucide-react';
+import { Activity, User, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
 const Login = () => {
   const { login, register } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
-  const [role, setRole] = useState('user'); // default to standard user view
+  const [role, setRole] = useState('user'); // used as credential fallback on login
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -18,10 +18,12 @@ const Login = () => {
     e.preventDefault();
     setErrorMsg('');
     if (isLogin) {
+      // Role is passed so AuthContext can use default credentials if fields are empty
       const res = await login(role, username, password);
       if (!res.success) setErrorMsg(res.message);
     } else {
-      const res = await register({ username, password, role, email, firstName, lastName });
+      // Self-registrations are always Personnel; admin can assign roles via User Management
+      const res = await register({ username, password, role: 'user', email, firstName, lastName });
       if (!res.success) setErrorMsg(res.message);
     }
   };
@@ -37,28 +39,33 @@ const Login = () => {
             Crowd<span className="text-gradient">Pulse</span>
           </h2>
           <p className="login-subtitle">
-            {isLogin ? 'Sign in to access the dashboard' : 'Create a new operator account'}
+            {isLogin ? 'Sign in to access the dashboard' : 'Sign up to join CrowdPulse'}
           </p>
         </div>
 
-        <div className="role-selector">
-          <button 
-            type="button"
-            className={`role-btn ${role === 'user' ? 'active' : ''}`}
-            onClick={() => setRole('user')}
-          >
-            <User size={18} />
-            <span>Personnel</span>
-          </button>
-          <button 
-            type="button"
-            className={`role-btn ${role === 'admin' ? 'active' : ''}`}
-            onClick={() => setRole('admin')}
-          >
-            <Shield size={18} />
-            <span>Administrator</span>
-          </button>
-        </div>
+        {/* Clickable role selector — only shown on Login */}
+        {isLogin && (
+          <div className="role-selector">
+            <button
+              type="button"
+              className={`role-btn ${role === 'user' ? 'active' : ''}`}
+              onClick={() => setRole('user')}
+            >
+              <User size={18} />
+              <span>Personnel</span>
+            </button>
+            <button
+              type="button"
+              className={`role-btn ${role === 'admin' ? 'active' : ''}`}
+              onClick={() => setRole('admin')}
+            >
+              <Shield size={18} />
+              <span>Administrator</span>
+            </button>
+          </div>
+        )}
+
+
 
         <form onSubmit={handleSubmit} className="login-form">
           {!isLogin && (
@@ -69,9 +76,10 @@ const Login = () => {
                   <input 
                     type="text" 
                     className="input-field" 
+                    placeholder="First name"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    required={!isLogin}
+                    required
                   />
                 </div>
                 <div className="input-group-col" style={{ flex: 1 }}>
@@ -79,9 +87,10 @@ const Login = () => {
                   <input 
                     type="text" 
                     className="input-field" 
+                    placeholder="Last name"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    required={!isLogin}
+                    required
                   />
                 </div>
               </div>
@@ -91,9 +100,10 @@ const Login = () => {
                 <input 
                   type="email" 
                   className="input-field" 
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required={!isLogin}
+                  required
                 />
               </div>
             </>
@@ -104,6 +114,7 @@ const Login = () => {
             <input 
               type="text" 
               className="input-field" 
+              placeholder="Choose a username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required

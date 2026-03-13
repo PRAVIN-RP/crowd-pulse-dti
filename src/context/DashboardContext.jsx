@@ -20,11 +20,12 @@ export const DashboardProvider = ({ children }) => {
   });
 
   const [alerts, setAlerts] = useState([]);
-  const [serialStatus, setSerialStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'error'
+  const [serialStatus, setSerialStatus] = useState('disconnected');
   const [port, setPort] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [activeBroadcast, setActiveBroadcast] = useState(null);
+  const [onDuty, setOnDuty] = useState(false);
   const [cameraNodes, setCameraNodes] = useState([{ id: 'cam-main', name: 'Zone A Camera', count: 0 }]);
   const [cameraCount, setCameraCount] = useState(0); // Aggregate Total AI Tracking Metric
   const cameraCountRef = useRef(0); // For socket closure access
@@ -268,6 +269,10 @@ export const DashboardProvider = ({ children }) => {
     }
   };
 
+  const dismissAlert = (id) => {
+    setAlerts(prev => prev.filter(a => a.id !== id));
+  };
+
   const updateSettings = async (updates) => {
     if (!user?.token) return;
     try {
@@ -369,6 +374,7 @@ export const DashboardProvider = ({ children }) => {
       warningLimit,
       updateSettings,
       alerts,
+      dismissAlert,
       isOvercrowded: sensorData.peopleCount >= maxCrowdLimit,
       connectSerial,
       disconnectSerial,
@@ -382,7 +388,9 @@ export const DashboardProvider = ({ children }) => {
       aiPrediction,
       cameraCount,
       cameraNodes,
-      updateCameraNode
+      updateCameraNode,
+      onDuty,
+      setOnDuty,
     }}>
       {children}
     </DashboardContext.Provider>

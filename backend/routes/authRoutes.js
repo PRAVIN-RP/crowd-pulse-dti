@@ -46,10 +46,12 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
+    // Security: public self-registration always creates Personnel accounts.
+    // Admin role can only be assigned by an authenticated admin via /api/auth/admin/create-user
     const user = await User.create({
       username,
       password,
-      role: role || 'user',
+      role: 'user',
       email,
       firstName,
       lastName
@@ -65,6 +67,34 @@ router.post('/register', async (req, res) => {
         role: user.role,
         token: generateToken(user._id),
       });
+    } else {
+      res.status(400).json({ message: 'Invalid user data' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @desc    Admin-only: Create a user with any role (including admin)
+// @route   POST /api/auth/admin/create-user
+// @access  Private (Admin only)
+router.post('/admin/create-user', protect, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Not authorized as admin' });
+  }
+  const { username, password, role, email, firstName, lastName } = req.body;
+  try {
+    const userExists = await User.findOne({ username });
+    if (userExists) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+    const user = await User.create({
+      username, password,
+      role: role || 'user',
+      email, firstName, lastName
+    });
+    if (user) {
+      res.status(201).json({ _id: user._id, username: user.username, email: user.email, role: user.role, token: generateToken(user._id) });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
     }
@@ -97,7 +127,7 @@ router.get('/users', protect, async (req, res) => {
     return res.status(403).json({ message: 'Not authorized as admin' });
   }
   try {
-    const users = await User.find({}).select('-password');
+    const users = await User.find({});
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -142,6 +172,31 @@ router.put('/users/:id/reset', protect, async (req, res) => {
     user.password = 'password';
     await user.save();
     res.json({ message: 'Password reset to "password"' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @desc    Promote / demote user role (Admin only)
+// @route   PUT /api/auth/users/:id/role
+// @access  Private (Admin only)
+router.put('/users/:id/role', protect, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Not authorized as admin' });
+  }
+  const { role } = req.body;
+  if (!['admin', 'user'].includes(role)) {
+    return res.status(400).json({ message: 'Invalid role. Must be "admin" or "user"' });
+  }
+  try {
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (target.username === 'admin' && role !== 'admin') {
+      return res.status(400).json({ message: 'Cannot demote the root admin' });
+    }
+    await User.updateRole(req.params.id, role);
+    res.json({ message: `User role updated to ${role}` });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

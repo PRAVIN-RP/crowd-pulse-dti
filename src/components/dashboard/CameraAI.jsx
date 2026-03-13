@@ -161,9 +161,11 @@ const CameraAI = () => {
        }
     }
     
-    // Check if we should continue tracking
+    // Check if we should continue tracking - throttle to ~10fps for better performance
     if (isCameraActive && !isEmergencyMode) {
-       requestRef.current = requestAnimationFrame(detectObjects);
+       setTimeout(() => {
+         requestRef.current = requestAnimationFrame(detectObjects);
+       }, 100); // 100ms delay = ~10fps instead of 60fps
     }
   };
 
